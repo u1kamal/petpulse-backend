@@ -1,0 +1,8 @@
+fastapi
+uvicorn
+paho-mqtt
+python-dotenv
+google-generativeai
+apscheduler
+tzlocal
+pytz

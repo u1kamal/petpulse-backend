@@ -1,0 +1,23 @@
+[
+  {
+    "id": "4f04e15c-2f6c-4846-b717-1b3bbb99f9a0",
+    "device_id": "device123",
+    "time": "16:17",
+    "amount": 50,
+    "unit": "g"
+  },
+  {
+    "id": "b34f88cc-f8cd-48d6-9998-bb7496002f23",
+    "device_id": "device123",
+    "time": "16:20",
+    "amount": 100,
+    "unit": "g"
+  },
+  {
+    "id": "7dfd6fe2-f12c-44c9-aac4-bc7596506aa0",
+    "device_id": "device123",
+    "time": "16:23",
+    "amount": 200,
+    "unit": "g"
+  }
+]

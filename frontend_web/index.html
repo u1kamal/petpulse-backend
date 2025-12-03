@@ -1,0 +1,785 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AutoPetFeeder - Smart IoT Feeding</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
+    background-image: radial-gradient(#e2e8f0 1px, transparent 1px);
+    background-size: 24px 24px;
+    }
+
+    .dashboard-container {
+    display: none;
+    /* Hidden by default */
+    }
+
+    .ai-container {
+    display: none;
+    /* Hidden by default */
+    }
+
+    /* Modal Styles */
+    .modal {
+    display: none;
+    position: fixed;
+    z-index: 100;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    overflow: auto;
+    background-color: rgba(0, 0, 0, 0.5);
+    backdrop-filter: blur(4px);
+    }
+
+    .modal-content {
+    background-color: #fefefe;
+    margin: 10% auto;
+    padding: 20px;
+    border-radius: 16px;
+    width: 90%;
+    max-width: 500px;
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+    }
+
+    /* Animation for feeding status */
+    @keyframes pulse-green {
+    0% {
+    box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.7);
+    }
+
+    70% {
+    box-shadow: 0 0 0 10px rgba(34, 197, 94, 0);
+    }
+
+    100% {
+    box-shadow: 0 0 0 0 rgba(34, 197, 94, 0);
+    }
+    }
+
+    .feeding-active {
+    animation: pulse-green 2s infinite;
+    border-color: #22c55e;
+    }
+
+    .prose strong {
+    color: #1e293b;
+    font-weight: 700;
+    }
+
+    .prose ul {
+    list-style-type: disc;
+    padding-left: 1.5rem;
+    margin-top: 0.5rem;
+    }
+
+    .prose li {
+    margin-bottom: 0.25rem;
+    }
+    </style>
+</head>
+
+<body class="text-slate-800 antialiased bg-slate-50" onload="initDashboard()">
+
+    <!-- Navbar -->
+    <nav class="fixed w-full z-50 bg-white/90 backdrop-blur-sm border-b border-slate-200">
+        <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between h-16 items-center">
+                <div class="flex items-center gap-2 cursor-pointer" onclick="showHome()">
+                    <i class="fa-solid fa-paw text-blue-600 text-2xl"></i>
+                    <span class="font-bold text-xl tracking-tight text-slate-900">AutoPetFeeder</span>
+                </div>
+                <div class="hidden md:flex gap-8 text-sm font-medium text-slate-600">
+                    <a href="#features" onclick="showHome()" class="hover:text-blue-600 transition">Features</a>
+                    <button onclick="showAI()" class="hover:text-blue-600 transition flex items-center gap-1"><i
+                            class="fa-solid fa-wand-magic-sparkles text-purple-500"></i> AI Care</button>
+                </div>
+                <div class="flex gap-3 items-center">
+                    <button onclick="showSettings()" class="text-slate-500 hover:text-slate-800 p-2 transition">
+                        <i class="fa-solid fa-gear text-xl"></i>
+                    </button>
+                    <button onclick="showDashboard()"
+                        class="bg-blue-600 text-white px-5 py-2 rounded-full text-sm font-semibold hover:bg-blue-700 transition shadow-lg shadow-blue-600/20">
+                        <i class="fa-solid fa-gauge-high mr-2"></i> Dashboard
+                    </button>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- SETTINGS MODAL (NEW) -->
+    <div id="settings-modal" class="modal">
+        <div class="modal-content">
+            <div class="flex justify-between items-center mb-6">
+                <h3 class="text-xl font-bold text-slate-800">Device Settings</h3>
+                <button onclick="closeSettings()" class="text-slate-400 hover:text-slate-600"><i
+                        class="fa-solid fa-xmark text-xl"></i></button>
+            </div>
+
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-sm font-bold text-slate-700 mb-1">Camera Stream URL</label>
+                    <p class="text-xs text-slate-500 mb-2">Typically http://[IP_ADDRESS]:81/stream</p>
+                    <div class="flex gap-2">
+                        <input type="text" id="camera-url-input" value="http://192.168.1.100:81/stream"
+                            class="flex-1 border border-slate-300 rounded-lg px-3 py-2 text-sm font-mono focus:ring-2 focus:ring-blue-500 outline-none">
+                        <button onclick="saveSettings()"
+                            class="bg-slate-900 text-white px-4 rounded-lg text-sm font-semibold">Save</button>
+                    </div>
+                </div>
+
+                <div class="pt-4 border-t border-slate-100">
+                    <label class="block text-sm font-bold text-slate-700 mb-2">Connection Status</label>
+                    <div class="flex gap-2 text-sm">
+                        <span class="bg-green-100 text-green-700 px-2 py-1 rounded">MQTT: Connected</span>
+                        <span class="bg-yellow-100 text-yellow-700 px-2 py-1 rounded">Cam: Discovering...</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- LANDING PAGE VIEW -->
+    <div id="landing-page">
+        <!-- Hero Section -->
+        <section class="hero-pattern pt-32 pb-20 lg:pt-48 lg:pb-32">
+            <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+                <div class="text-center">
+                    <h1 class="text-4xl lg:text-6xl font-bold tracking-tight mb-6">
+                        Control your pet feeder <br>
+                        <span class="gradient-text">from anywhere.</span>
+                    </h1>
+                    <p class="text-xl text-slate-600 mb-8 leading-relaxed max-w-2xl mx-auto">
+                        This is the project homepage. To see the actual controls, weight sensor, and video feed
+                        interface, click the <b>Dashboard</b> button above.
+                    </p>
+                    <div class="flex justify-center gap-4">
+                        <button onclick="showDashboard()"
+                            class="bg-slate-900 text-white px-8 py-3.5 rounded-lg font-semibold hover:bg-slate-800 transition flex items-center justify-center gap-2">
+                            Try the Web App Demo
+                        </button>
+                        <button onclick="showAI()"
+                            class="bg-white text-purple-600 border border-purple-200 px-8 py-3.5 rounded-lg font-semibold hover:bg-purple-50 transition flex items-center justify-center gap-2 shadow-sm">
+                            <i class="fa-solid fa-wand-magic-sparkles"></i> AI Assistant
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </div>
+
+    <!-- AI CARE CENTER VIEW (HIDDEN BY DEFAULT) -->
+    <div id="ai-view" class="ai-container pt-24 pb-12 px-4">
+        <div class="max-w-5xl mx-auto">
+            <div class="mb-8">
+                <h2 class="text-3xl font-bold text-slate-900">AI Care Center ✨</h2>
+                <p class="text-slate-600">Powered by Gemini. Get personalized diet plans and health advice for your pet.
+                </p>
+            </div>
+
+            <div class="grid md:grid-cols-2 gap-8">
+
+                <!-- Feature 1: Smart Diet Planner -->
+                <div class="bg-white rounded-2xl p-6 shadow-sm border border-purple-100">
+                    <div class="flex items-center gap-3 mb-6 border-b border-slate-100 pb-4">
+                        <div
+                            class="w-10 h-10 bg-purple-100 rounded-full flex items-center justify-center text-purple-600">
+                            <i class="fa-solid fa-utensils"></i>
+                        </div>
+                        <h3 class="text-xl font-bold text-slate-800">Smart Diet Planner</h3>
+                    </div>
+
+                    <div class="space-y-4">
+                        <!-- Updated Input Structure -->
+                        <div>
+                            <label class="block text-sm font-medium text-slate-700 mb-1">Pet Name</label>
+                            <input type="text" id="pet-name" placeholder="e.g. Luna"
+                                class="w-full rounded-lg border-slate-200 border p-2 text-sm focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none">
+                        </div>
+
+                        <!-- Dynamic Species & Breed Section -->
+                        <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-sm font-medium text-slate-700 mb-1">Species</label>
+                                <select id="pet-species" onchange="handleSpeciesChange()"
+                                    class="w-full rounded-lg border-slate-200 border p-2 text-sm focus:ring-2 focus:ring-purple-500 outline-none">
+                                    <option value="" disabled selected>Select Species</option>
+                                    <option value="Dog">Dog</option>
+                                    <option value="Cat">Cat</option>
+                                    <option value="Other">Other</option>
+                                </select>
+                            </div>
+                            <!-- Hidden by default until species selected -->
+                            <div id="breed-container" class="hidden opacity-0 transition-opacity duration-300">
+                                <label id="breed-label"
+                                    class="block text-sm font-medium text-slate-700 mb-1">Breed</label>
+                                <input type="text" id="pet-breed" placeholder="Select species first"
+                                    class="w-full rounded-lg border-slate-200 border p-2 text-sm focus:ring-2 focus:ring-purple-500 outline-none">
+                            </div>
+                        </div>
+
+                        <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-sm font-medium text-slate-700 mb-1">Weight (kg)</label>
+                                <input type="number" id="pet-weight" placeholder="4.5"
+                                    class="w-full rounded-lg border-slate-200 border p-2 text-sm focus:ring-2 focus:ring-purple-500 outline-none">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-slate-700 mb-1">Age (Years)</label>
+                                <input type="number" id="pet-age" placeholder="3"
+                                    class="w-full rounded-lg border-slate-200 border p-2 text-sm focus:ring-2 focus:ring-purple-500 outline-none">
+                            </div>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-slate-700 mb-1">Activity Level</label>
+                            <select id="pet-activity"
+                                class="w-full rounded-lg border-slate-200 border p-2 text-sm focus:ring-2 focus:ring-purple-500 outline-none">
+                                <option value="Low (Indoor/Lazy)">Low (Indoor/Lazy)</option>
+                                <option value="Moderate (Playful)">Moderate (Playful)</option>
+                                <option value="High (Active/Outdoor)">High (Active/Outdoor)</option>
+                            </select>
+                        </div>
+
+                        <button onclick="generateDietPlan()" id="btn-diet"
+                            class="w-full bg-gradient-to-r from-purple-600 to-indigo-600 text-white py-3 rounded-lg font-semibold hover:opacity-90 transition flex items-center justify-center gap-2 mt-4">
+                            <i class="fa-solid fa-wand-magic-sparkles"></i> Generate Plan ✨
+                        </button>
+                    </div>
+
+                    <!-- Result Area -->
+                    <div id="diet-result" class="mt-6 p-4 bg-slate-50 rounded-xl border border-slate-100 hidden">
+                        <h4 class="font-bold text-slate-800 mb-2 flex items-center gap-2">
+                            <i class="fa-solid fa-robot text-purple-500"></i> Gemini's Recommendation:
+                        </h4>
+                        <div id="diet-content" class="text-sm text-slate-600 prose leading-relaxed"></div>
+                    </div>
+                </div>
+
+                <!-- Feature 2: Behavior Chat -->
+                <div class="bg-white rounded-2xl p-6 shadow-sm border border-blue-100 flex flex-col h-full">
+                    <div class="flex items-center gap-3 mb-6 border-b border-slate-100 pb-4">
+                        <div class="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center text-blue-600">
+                            <i class="fa-solid fa-comments"></i>
+                        </div>
+                        <h3 class="text-xl font-bold text-slate-800">Behavior Assistant</h3>
+                    </div>
+
+                    <div id="chat-history"
+                        class="flex-1 bg-slate-50 rounded-xl p-4 mb-4 overflow-y-auto min-h-[300px] max-h-[400px] space-y-3">
+                        <div
+                            class="bg-white p-3 rounded-lg rounded-tl-none shadow-sm border border-slate-100 max-w-[90%]">
+                            <p class="text-sm text-slate-600">Hello! I'm your AI Pet Assistant. Ask me anything about
+                                your pet's behavior, health, or training! 🐾</p>
+                        </div>
+                    </div>
+
+                    <div class="relative">
+                        <input type="text" id="chat-input" placeholder="e.g. Why does my cat knead blankets?"
+                            class="w-full rounded-lg border-slate-200 border p-3 pr-12 text-sm focus:ring-2 focus:ring-blue-500 outline-none">
+                        <button onclick="sendChatMessage()" id="btn-chat"
+                            class="absolute right-2 top-2 text-blue-600 hover:bg-blue-50 p-1.5 rounded-md transition">
+                            <i class="fa-solid fa-paper-plane"></i>
+                        </button>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+    <!-- DASHBOARD VIEW (HIDDEN BY DEFAULT) -->
+    <div id="dashboard-view" class="dashboard-container pt-24 pb-12 px-4">
+        <div class="max-w-4xl mx-auto">
+
+            <!-- Dashboard Header -->
+            <div class="flex justify-between items-end mb-6">
+                <div>
+                    <h2 class="text-2xl font-bold text-slate-900">My Device</h2>
+                    <p class="text-sm text-slate-500">ID: ESP32_FEEDER_01</p>
+                </div>
+                <div id="status-badge"
+                    class="bg-green-100 text-green-700 px-3 py-1 rounded-full text-sm font-semibold flex items-center gap-2">
+                    <div class="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div> Status: OK
+                </div>
+            </div>
+
+            <div class="grid md:grid-cols-3 gap-6">
+
+                <!-- Left Column: Video & Status -->
+                <div class="md:col-span-2 space-y-6">
+
+                    <!-- Live Video Feed -->
+                    <div class="bg-black rounded-2xl overflow-hidden shadow-lg relative aspect-video group">
+                        <!-- Simulated Video Placeholder -->
+                        <div class="absolute inset-0 flex items-center justify-center bg-slate-900">
+                            <i class="fa-solid fa-video text-slate-700 text-6xl"></i>
+                            <p id="video-status-text" class="absolute bottom-4 text-slate-500 text-sm">Waiting for MJPEG
+                                Stream...</p>
+                        </div>
+                        <!-- Live Badge -->
+                        <div
+                            class="absolute top-4 left-4 bg-red-600/90 text-white text-xs font-bold px-2 py-1 rounded flex items-center gap-2">
+                            <div class="w-2 h-2 bg-white rounded-full animate-pulse"></div> LIVE
+                        </div>
+                        <!-- Overlay Controls -->
+                        <div
+                            class="absolute bottom-0 w-full bg-gradient-to-t from-black/80 to-transparent p-4 opacity-0 group-hover:opacity-100 transition">
+                            <button class="text-white hover:text-blue-400"><i class="fa-solid fa-expand"></i>
+                                Fullscreen</button>
+                        </div>
+                    </div>
+
+                    <!-- Controls Section -->
+                    <div class="bg-white rounded-2xl p-6 shadow-sm border border-slate-200">
+
+                        <!-- Food Control -->
+                        <h3 class="font-bold text-slate-800 mb-4 flex items-center gap-2">
+                            <i class="fa-solid fa-utensils text-blue-500"></i> Manual Feed (Food)
+                        </h3>
+                        <!-- Buttons set value but do not trigger feed -->
+                        <div class="grid grid-cols-4 gap-3 mb-3">
+                            <button onclick="selectFoodAmount(50)"
+                                class="bg-blue-50 text-blue-700 py-3 rounded-lg font-semibold hover:bg-blue-600 hover:text-white transition border border-blue-100">50g</button>
+                            <button onclick="selectFoodAmount(100)"
+                                class="bg-blue-50 text-blue-700 py-3 rounded-lg font-semibold hover:bg-blue-600 hover:text-white transition border border-blue-100">100g</button>
+                            <button onclick="selectFoodAmount(150)"
+                                class="bg-blue-50 text-blue-700 py-3 rounded-lg font-semibold hover:bg-blue-600 hover:text-white transition border border-blue-100">150g</button>
+                            <button onclick="selectFoodAmount(200)"
+                                class="bg-blue-50 text-blue-700 py-3 rounded-lg font-semibold hover:bg-blue-600 hover:text-white transition border border-blue-100">200g</button>
+                        </div>
+
+                        <!-- Custom Food Bar with Feed Action -->
+                        <div class="flex gap-2 mb-6">
+                            <div class="relative flex-1">
+                                <input type="number" id="custom-food-input" placeholder="Select or type amount"
+                                    class="w-full border border-slate-200 rounded-lg pl-3 pr-16 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                <span class="absolute right-4 top-2.5 text-slate-400 text-sm font-medium">grams</span>
+                            </div>
+                            <button onclick="feedCustomInput()"
+                                class="bg-slate-800 text-white px-5 rounded-lg text-sm font-semibold hover:bg-slate-700 transition shadow-sm">
+                                Feed
+                            </button>
+                        </div>
+
+                        <!-- Water Control (New!) -->
+                        <h3
+                            class="font-bold text-slate-800 mb-4 flex items-center gap-2 border-t border-slate-100 pt-4">
+                            <i class="fa-solid fa-droplet text-cyan-500"></i> Manual Dispense (Water)
+                        </h3>
+                        <!-- Buttons set value but do not trigger dispense -->
+                        <div class="grid grid-cols-4 gap-3 mb-3">
+                            <button onclick="selectWaterAmount(50)"
+                                class="bg-cyan-50 text-cyan-700 py-3 rounded-lg font-semibold hover:bg-cyan-500 hover:text-white transition border border-cyan-100">50ml</button>
+                            <button onclick="selectWaterAmount(100)"
+                                class="bg-cyan-50 text-cyan-700 py-3 rounded-lg font-semibold hover:bg-cyan-500 hover:text-white transition border border-cyan-100">100ml</button>
+                            <button onclick="selectWaterAmount(150)"
+                                class="bg-cyan-50 text-cyan-700 py-3 rounded-lg font-semibold hover:bg-cyan-500 hover:text-white transition border border-cyan-100">150ml</button>
+                            <button onclick="selectWaterAmount(200)"
+                                class="bg-cyan-50 text-cyan-700 py-3 rounded-lg font-semibold hover:bg-cyan-500 hover:text-white transition border border-cyan-100">200ml</button>
+                        </div>
+
+                        <!-- Custom Water Bar with Dispense Action -->
+                        <div class="flex gap-2">
+                            <div class="relative flex-1">
+                                <input type="number" id="custom-water-input" placeholder="Select or type amount"
+                                    class="w-full border border-slate-200 rounded-lg pl-3 pr-16 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500">
+                                <span class="absolute right-4 top-2.5 text-slate-400 text-sm font-medium">ml</span>
+                            </div>
+                            <button onclick="dispenseWaterInput()"
+                                class="bg-slate-800 text-white px-5 rounded-lg text-sm font-semibold hover:bg-slate-700 transition shadow-sm">
+                                Dispense
+                            </button>
+                        </div>
+
+                    </div>
+
+                </div>
+
+                <!-- Right Column: Stats & Logs -->
+                <div class="space-y-6">
+
+                    <!-- Weight Sensor -->
+                    <div id="weight-card"
+                        class="bg-white rounded-2xl p-6 shadow-sm border border-slate-200 transition-all duration-300">
+                        <div class="flex justify-between items-start mb-2">
+                            <span class="text-sm font-bold text-slate-400 uppercase tracking-wider">Current
+                                Weight</span>
+                            <i class="fa-solid fa-scale-balanced text-blue-500 text-xl"></i>
+                        </div>
+                        <div class="flex items-baseline gap-1">
+                            <span id="weight-display" class="text-5xl font-bold text-slate-800">150</span>
+                            <span class="text-xl text-slate-400 font-medium">g</span>
+                        </div>
+                        <div class="mt-4 w-full bg-slate-100 rounded-full h-2">
+                            <div id="weight-bar" class="bg-blue-500 h-2 rounded-full transition-all duration-500"
+                                style="width: 30%"></div>
+                        </div>
+                        <p class="text-xs text-slate-400 mt-2 text-right">Capacity (Bowl): 500g</p>
+                    </div>
+
+                    <!-- Info Card -->
+                    <div class="bg-white rounded-2xl p-6 shadow-sm border border-slate-200">
+                        <h4 class="font-bold text-slate-800 mb-4">Device Info</h4>
+                        <ul class="space-y-3 text-sm">
+                            <li class="flex justify-between">
+                                <span class="text-slate-500">Last Feed:</span>
+                                <span id="last-feed-time" class="font-medium text-slate-800">--:--</span>
+                            </li>
+                            <li class="flex justify-between">
+                                <span class="text-slate-500">Next Schedule:</span>
+                                <span id="next-feed-time" class="font-medium text-slate-800">--:--</span>
+                            </li>
+                            <li class="flex justify-between">
+                                <span class="text-slate-500">WiFi Signal:</span>
+                                <span class="font-medium text-green-600"><i class="fa-solid fa-wifi"></i> Strong</span>
+                            </li>
+                            <li class="flex justify-between">
+                                <span class="text-slate-500">Firmware:</span>
+                                <span class="font-medium text-slate-800">v1.2.4</span>
+                            </li>
+                        </ul>
+                    </div>
+
+                    <!-- Console Log (Visual Only) -->
+                    <div
+                        class="bg-slate-900 rounded-2xl p-4 shadow-sm border border-slate-800 h-48 overflow-hidden flex flex-col">
+                        <span class="text-xs font-bold text-slate-500 mb-2 uppercase">System Log</span>
+                        <div id="system-log" class="font-mono text-xs text-green-400 space-y-1 overflow-y-auto flex-1">
+                            <p>> System initialized.</p>
+                            <p>> Connected to MQTT broker.</p>
+                            <p>> Video stream ready.</p>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const apiKey = ""; // API Key provided by environment
+        const BOWL_CAPACITY = 500; // Max capacity of the feeding bowl
+        let currentWeight = 150; // Starting weight of food in the bowl
+
+        // Initialize Real Times on Load
+        function initDashboard() {
+            // Set initial last feed time (mock: 2 hours ago)
+            const lastFeed = new Date();
+            lastFeed.setHours(lastFeed.getHours() - 2);
+            document.getElementById('last-feed-time').innerText = getIndianTime(lastFeed);
+
+            // Set next feed time (mock: 4 hours from now)
+            const nextFeed = new Date();
+            nextFeed.setHours(nextFeed.getHours() + 4);
+            document.getElementById('next-feed-time').innerText = getIndianTime(nextFeed);
+
+            // Render initial weight
+            renderWeight();
+        }
+
+        // Helper: Format Time for India (IST)
+        function getIndianTime(dateObj = new Date()) {
+            return dateObj.toLocaleTimeString('en-IN', {
+                timeZone: 'Asia/Kolkata',
+                hour: '2-digit',
+                minute: '2-digit',
+                hour12: true
+            });
+        }
+
+        // View Switching Logic
+        function showDashboard() {
+            document.getElementById('landing-page').style.display = 'none';
+            document.getElementById('ai-view').style.display = 'none';
+            document.getElementById('dashboard-view').style.display = 'block';
+        }
+
+        function showHome() {
+            document.getElementById('landing-page').style.display = 'block';
+            document.getElementById('ai-view').style.display = 'none';
+            document.getElementById('dashboard-view').style.display = 'none';
+        }
+
+        function showAI() {
+            document.getElementById('landing-page').style.display = 'none';
+            document.getElementById('dashboard-view').style.display = 'none';
+            document.getElementById('ai-view').style.display = 'block';
+        }
+
+        // --- SETTINGS MODAL LOGIC ---
+        function showSettings() {
+            document.getElementById('settings-modal').style.display = 'block';
+        }
+
+        function closeSettings() {
+            document.getElementById('settings-modal').style.display = 'none';
+        }
+
+        function saveSettings() {
+            const url = document.getElementById('camera-url-input').value;
+            // Update the text in the placeholder to reflect "connected"
+            document.getElementById('video-status-text').innerText = "Stream set to: " + url;
+            closeSettings();
+            alert("Camera URL updated!");
+        }
+
+        // --- DYNAMIC BREED LOGIC ---
+        function handleSpeciesChange() {
+            const species = document.getElementById('pet-species').value;
+            const breedContainer = document.getElementById('breed-container');
+            const breedLabel = document.getElementById('breed-label');
+            const breedInput = document.getElementById('pet-breed');
+
+            if (species) {
+                breedContainer.classList.remove('hidden');
+                setTimeout(() => breedContainer.classList.remove('opacity-0'), 10);
+            }
+
+            if (species === 'Dog') {
+                breedLabel.textContent = "Dog Breed";
+                breedInput.placeholder = "e.g. Golden Retriever";
+            } else if (species === 'Cat') {
+                breedLabel.textContent = "Cat Breed";
+                breedInput.placeholder = "e.g. Siamese";
+            } else {
+                breedLabel.textContent = "Specific Species/Type";
+                breedInput.placeholder = "e.g. Rabbit, Parrot";
+            }
+        }
+
+        // --- GEMINI API INTEGRATION ---
+        async function callGemini(prompt) {
+            // Simplified API call for demo environment
+            const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
+            const payload = { contents: [{ parts: [{ text: prompt }] }] };
+
+            try {
+                const response = await fetch(url, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                if (!response.ok) throw new Error(`API Error: ${response.status}`);
+
+                const data = await response.json();
+                return data.candidates?.[0]?.content?.parts?.[0]?.text || "Sorry, I couldn't generate a response.";
+            } catch (error) {
+                console.error("Gemini API Error:", error);
+                return "Error connecting to AI service. Please check your internet connection.";
+            }
+        }
+
+        async function generateDietPlan() {
+            const name = document.getElementById('pet-name').value;
+            const species = document.getElementById('pet-species').value;
+            const breed = document.getElementById('pet-breed').value;
+            const weight = document.getElementById('pet-weight').value;
+            const age = document.getElementById('pet-age').value;
+            const activity = document.getElementById('pet-activity').value;
+
+            if (!name || !species || !breed || !weight || !age) {
+                alert("Please fill in all details, including the species and breed!");
+                return;
+            }
+
+            const btn = document.getElementById('btn-diet');
+            const resultBox = document.getElementById('diet-result');
+            const contentBox = document.getElementById('diet-content');
+
+            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Generating...';
+            btn.disabled = true;
+
+            const prompt = `Act as an expert veterinarian nutritionist. Create a short, daily feeding schedule and exact portion size in grams for a ${species} (Breed: ${breed}) named ${name} weighing ${weight}kg, age ${age} years, with ${activity} activity level. Format the response with clean HTML tags (using <strong> for emphasis and <ul> for lists), keeping it concise and friendly. Focus on portion control.`;
+
+            const response = await callGemini(prompt);
+
+            contentBox.innerHTML = response;
+            resultBox.classList.remove('hidden');
+
+            btn.innerHTML = '<i class="fa-solid fa-wand-magic-sparkles"></i> Generate Plan ✨';
+            btn.disabled = false;
+        }
+
+        async function sendChatMessage() {
+            const input = document.getElementById('chat-input');
+            const history = document.getElementById('chat-history');
+            const userText = input.value.trim();
+
+            if (!userText) return;
+
+            history.innerHTML += `
+                <div class="flex justify-end">
+                    <div class="bg-blue-600 text-white p-3 rounded-lg rounded-tr-none text-sm max-w-[90%] shadow-sm">
+                        ${userText}
+                    </div>
+                </div>`;
+            input.value = "";
+            history.scrollTop = history.scrollHeight;
+
+            const loadingId = "loading-" + Date.now();
+            history.innerHTML += `
+                <div class="flex justify-start" id="${loadingId}">
+                    <div class="bg-white p-3 rounded-lg rounded-tl-none text-sm border border-slate-100 shadow-sm text-slate-500">
+                        <i class="fa-solid fa-ellipsis fa-bounce"></i>
+                    </div>
+                </div>`;
+            history.scrollTop = history.scrollHeight;
+
+            const prompt = `You are a helpful, friendly AI assistant for pet owners built into a smart pet feeder. Answer this question concisely about pet behavior or health: "${userText}"`;
+            const aiResponse = await callGemini(prompt);
+
+            document.getElementById(loadingId).remove();
+            history.innerHTML += `
+                <div class="flex justify-start">
+                    <div class="bg-white p-3 rounded-lg rounded-tl-none text-sm border border-slate-100 shadow-sm text-slate-700">
+                        ${aiResponse}
+                    </div>
+                </div>`;
+            history.scrollTop = history.scrollHeight;
+        }
+
+        document.getElementById('chat-input').addEventListener('keypress', function (e) {
+            if (e.key === 'Enter') sendChatMessage();
+        });
+
+
+        // --- DASHBOARD LOGIC ---
+
+        // Helper: Select amount (Food)
+        function selectFoodAmount(amount) {
+            document.getElementById('custom-food-input').value = amount;
+        }
+
+        // Helper: Select amount (Water)
+        function selectWaterAmount(amount) {
+            document.getElementById('custom-water-input').value = amount;
+        }
+
+        async function feed(amount) {
+            const statusBadge = document.getElementById('status-badge');
+            const log = document.getElementById('system-log');
+
+            statusBadge.className = "bg-blue-100 text-blue-700 px-3 py-1 rounded-full text-sm font-semibold flex items-center gap-2";
+            statusBadge.innerHTML = `<div class="w-2 h-2 bg-blue-500 rounded-full animate-pulse"></div> Status: Requesting ${amount}g...`;
+
+            try {
+                const response = await fetch('http://localhost:8000/feed', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ amount: amount, unit: 'g' }),
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+
+                const data = await response.json();
+
+                log.innerHTML += `<p>> Backend: ${data.message}</p>`;
+                log.scrollTop = log.scrollHeight;
+
+                statusBadge.className = "bg-green-100 text-green-700 px-3 py-1 rounded-full text-sm font-semibold flex items-center gap-2";
+                statusBadge.innerHTML = `<div class="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div> Status: Completed`;
+
+                // Update Last Feed Time using Indian Time
+                document.getElementById('last-feed-time').innerText = getIndianTime();
+
+                log.innerHTML += `<p>> Feed successful. Bowl weight increased.</p>`;
+                log.scrollTop = log.scrollHeight;
+
+                // CRITICAL FIX: Add weight to the bowl
+                updateWeight(amount);
+
+            } catch (error) {
+                console.error('Error feeding:', error);
+                statusBadge.className = "bg-red-100 text-red-700 px-3 py-1 rounded-full text-sm font-semibold flex items-center gap-2";
+                statusBadge.innerHTML = `<div class="w-2 h-2 bg-red-500 rounded-full"></div> Status: Error`;
+                log.innerHTML += `<p class="text-red-400">> Error: ${error.message}</p>`;
+                alert("Failed to connect to backend. Is it running?");
+            }
+        }
+
+        function feedCustomInput() {
+            let inputField = document.getElementById('custom-food-input');
+            let amount = parseInt(inputField.value);
+
+            // Check if adding this amount exceeds bowl capacity
+            if (currentWeight + amount > BOWL_CAPACITY) {
+                alert(`Error: Dispensing ${amount}g would exceed the bowl's ${BOWL_CAPACITY}g capacity. Bowl currently has ${currentWeight}g.`);
+                return;
+            }
+
+            if (!isNaN(amount) && amount > 0) {
+                feed(amount);
+            } else {
+                alert("Please select or enter a valid amount in grams.");
+            }
+        }
+
+        // New Water Function
+        async function dispenseWater(amount) {
+            const log = document.getElementById('system-log');
+            log.innerHTML += `<p>> Requesting: WATER ${amount}ml</p>`;
+            log.scrollTop = log.scrollHeight;
+
+            try {
+                const response = await fetch('http://localhost:8000/water', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ amount: amount, unit: 'ml' }),
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+
+                const data = await response.json();
+                log.innerHTML += `<p>> Backend: ${data.message}</p>`;
+                alert(`Backend confirmed: ${data.message}`);
+
+            } catch (error) {
+                console.error('Error dispensing water:', error);
+                log.innerHTML += `<p class="text-red-400">> Error: ${error.message}</p>`;
+                alert("Failed to connect to backend.");
+            }
+        }
+
+        // New Water Custom Function
+        function dispenseWaterInput() {
+            let inputField = document.getElementById('custom-water-input');
+            let amount = parseInt(inputField.value);
+
+            if (!isNaN(amount) && amount > 0) {
+                dispenseWater(amount);
+            } else {
+                alert("Please select or enter a valid amount in ml.");
+            }
+        }
+
+        // --- WEIGHT MANAGEMENT LOGIC (Corrected for Load Cell at Bowl) ---
+        function updateWeight(change) {
+            currentWeight += change;
+            if (currentWeight < 0) currentWeight = 0;
+            if (currentWeight > BOWL_CAPACITY) currentWeight = BOWL_CAPACITY; // Prevent overflow (in simulation)
+            renderWeight();
+        }
+
+        function renderWeight() {
+            document.getElementById('weight-display').innerText = currentWeight;
+            const percentage = (currentWeight / BOWL_CAPACITY) * 100;
+            document.getElementById('weight-bar').style.width = `${percentage}%`;
+        }
+
+    </script>
+</body>
+
+</html>

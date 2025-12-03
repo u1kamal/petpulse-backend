@@ -1,0 +1,14 @@
+.env
+__pycache__/
+*.pyc
+node_modules/
+.expo/
+*.apk
+
+# Secrets
+mobile/google-services.json
+backend/serviceAccountKey.json
+
+# Secrets
+mobile/google-services.json
+backend/serviceAccountKey.json
